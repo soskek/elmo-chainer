@@ -1,3 +1,36 @@
+# bilm-chainer
+Chainer implementation of the pretrained biLM used to compute ELMo
+representations from ["Deep contextualized word representations"](http://arxiv.org/abs/1802.05365).
+
+This implementation can load and run model dumps, options and vocabularies as well as the original implementations by pytorch and tensorflow.
+
+Implementations with other frameworks are as follows:
+
+- tensorflow implementation available in [bilm-tf](https://github.com/allenai/bilm-tf)
+- pytorch implementation available in [AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md)
+
+*Install*
+
+```
+pip install chainer h5py tqdm
+python setup.py install
+sh download.sh
+```
+
+
+## Note
+
+- Can load model files with the orignal formats.
+- Training of weight-sum layers is supported.
+- Pretraining of biLM is NOT supported.
+- Now, `usage_character.py` mode is supported. The other modes will be available soon.
+
+
+
+-------------
+
+# The following is the original README
+
 # bilm-tf
 Tensorflow implementation of the pretrained biLM used to compute ELMo
 representations from ["Deep contextualized word representations"](http://arxiv.org/abs/1802.05365).
