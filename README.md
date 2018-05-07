@@ -4,12 +4,9 @@ representations from ["Deep contextualized word representations"](http://arxiv.o
 
 This implementation can load and run model dumps, options and vocabularies as well as the original implementations by pytorch and tensorflow.
 
-Implementations with other frameworks are as follows:
+This repository is ported from [tensorflow](https://github.com/allenai/bilm-tf) and [pytorch in AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md). In summary, this refers to preprocessing and interfaces in tensorflow one and networks and functions in pytorch one for simplicity.
 
-- tensorflow implementation available in [bilm-tf](https://github.com/allenai/bilm-tf)
-- pytorch implementation available in [AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md)
-
-*Install*
+## Install
 
 ```
 pip install chainer h5py tqdm
