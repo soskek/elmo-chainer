@@ -224,7 +224,10 @@ class Elmo(chainer.Chain):
             reshaped_inputs = inputs
 
         # run the biLM
-        bilm_output = self._elmo_lstm.forward(reshaped_inputs)
+        # no backprop through bilstm for lightening computations
+        with chainer.using_config("train", False), \
+                chainer.no_backprop_mode():
+            bilm_output = self._elmo_lstm.forward(reshaped_inputs)
         layer_activations = bilm_output['activations']
         mask_with_bos_eos = bilm_output['mask']
 

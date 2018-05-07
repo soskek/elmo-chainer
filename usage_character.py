@@ -64,10 +64,8 @@ if gpu >= 0:
 
 # Compute elmo outputs,
 # i.e. weighted sum of multi-layer biLM's outputs.
-with chainer.using_config("train", False), \
-        chainer.no_backprop_mode():
-    context_embeddings = elmo.forward(context_ids)
-    question_embeddings = elmo.forward(question_ids)
+context_embeddings = elmo.forward(context_ids)
+question_embeddings = elmo.forward(question_ids)
 
 """
 elmo's output is a dict with the following key-values:
@@ -93,6 +91,8 @@ print(context_embeddings['elmo_representations'][0])
 print(len(context_embeddings['elmo_layers']),
       [x.shape for x in context_embeddings['elmo_layers']])
 
+print(type(context_embeddings['elmo_representations'][0]))
+print(context_embeddings['elmo_representations'][0].shape)
 # print(context_embeddings['elmo_representations'])
 # print(context_embeddings['elmo_layers'][0])
 # print(context_embeddings['elmo_layers'][1])
