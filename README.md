@@ -16,7 +16,7 @@ sh download.sh
 
 ## Usage
 
-See `usage_character.py` in detail.
+See `usage_character.py` or `usage_character_simple.py` in detail.
 
 ```
 import chainer
