@@ -57,6 +57,7 @@ print(embeddings['elmo_representations'][0].shape)
 - Can load model files with the orignal formats.
 - Training of weight-sum layers is supported.
 - Pretraining of biLM is NOT supported.
+- Finetuning of biLM in downstream tasks is possible but disable by default.
 - Now supporting `usage_character.py` and `usage_token.py`. `usage_cache.py` will be available soon.
 
 
