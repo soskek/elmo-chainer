@@ -17,3 +17,14 @@ with h5py.File(embedding_weight_file, 'r') as fin:
 
 print(weights.shape)
 print(weights)
+
+
+embedding_file = 'elmo_embeddings.hdf5'
+sentence_idx = '1'  # 0-start index, so this is 2nd sentence
+
+with h5py.File(embedding_file, 'r') as fin:
+
+    embedding = fin[sentence_idx][...]
+
+print(embedding.shape)
+print(embedding)

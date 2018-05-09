@@ -4,7 +4,7 @@ representations from ["Deep contextualized word representations"](http://arxiv.o
 
 This implementation can load and run model dumps, options and vocabularies as well as the original implementations by pytorch and tensorflow.
 
-This repository is ported from [tensorflow](https://github.com/allenai/bilm-tf) and [pytorch in AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md). In summary, this refers to preprocessing and interfaces in tensorflow one and networks and functions in pytorch one for simplicity.
+This repository is ported from [tensorflow bilm-tf](https://github.com/allenai/bilm-tf) and [pytorch in AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md). In summary, this refers to preprocessing and interfaces in tensorflow one and networks and functions in pytorch one for simplicity.
 
 ## Install
 
@@ -19,6 +19,10 @@ sh download.sh
 See `usage_character.py` or `usage_character_simple.py` in detail.
 
 You can also refer to `usage_token.py` for pre-encoding and re-use token embeddings.
+Or, you can encode and dump all sentences in advance, shown in `usage_cache.py`.
+
+More descriptions are available in [here](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md).
+
 
 ```
 import chainer
@@ -58,7 +62,6 @@ print(embeddings['elmo_representations'][0].shape)
 - Training of weight-sum layers is supported.
 - Pretraining of biLM is NOT supported.
 - Finetuning of biLM in downstream tasks is possible but disable by default.
-- Now supporting `usage_character.py` and `usage_token.py`. `usage_cache.py` will be available soon.
 
 
 

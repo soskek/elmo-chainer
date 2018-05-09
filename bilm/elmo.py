@@ -135,6 +135,61 @@ def remove_sentence_boundaries(tensor,
     return tensor_without_boundary_tokens, new_mask
 
 
+def remove_sentence_boundaries_for_variable(tensor,
+                                            mask):
+    """
+    Variable's propagation is kept.
+
+    Remove begin/end of sentence embeddings from the batch of sentences.
+    Given a batch of sentences with size ``(batch_size, timesteps, dim)``
+    this returns a tensor of shape ``(batch_size, timesteps - 2, dim)`` after removing
+    the beginning and end sentence markers.  The sentences are assumed to be padded on the right,
+    with the beginning of each sentence assumed to occur at index 0 (i.e., ``mask[:, 0]`` is assumed
+    to be 1).
+    Returns both the new tensor and updated mask.
+    This function is the inverse of ``add_sentence_boundary_token_ids``.
+    Parameters
+    ----------
+    tensor : ``torch.Tensor``
+        A tensor of shape ``(batch_size, timesteps, dim)``
+    mask : ``torch.Tensor``
+         A tensor of shape ``(batch_size, timesteps)``
+    Returns
+    -------
+    tensor_without_boundary_tokens : ``torch.Tensor``
+        The tensor after removing the boundary tokens of shape ``(batch_size, timesteps - 2, dim)``
+    new_mask : ``torch.Tensor``
+        The new mask for the tensor of shape ``(batch_size, timesteps - 2)``.
+    """
+    xp = cuda.get_array_module(mask)
+
+    # TODO: matthewp, profile this transfer
+    sequence_lengths = mask.sum(axis=1)
+    tensor_shape = list(tensor.array.shape)
+    new_shape = list(tensor_shape)
+    new_shape[1] = tensor_shape[1] - 2
+    # tensor_without_boundary_tokens = xp.zeros(new_shape, 'f')
+    tensor_without_boundary_tokens = []
+    new_mask = xp.zeros((new_shape[0], new_shape[1]), 'i')
+    for i, j in enumerate(sequence_lengths):
+        if j > 2:
+            new_mask[i, :(j - 2)] = 1
+
+    tensor_without_bos = tensor[:, 1:]
+    tensor_without_bos_and_tailone = tensor_without_bos[:, :-1]
+    wide_new_mask = xp.broadcast_to(
+        new_mask[:, :, None], tensor_without_bos_and_tailone.shape)
+    tensor_without_bos_and_eos = tensor_without_bos_and_tailone * wide_new_mask
+
+    # test
+    xp.testing.assert_array_almost_equal(
+        tensor_without_bos_and_eos.array,
+        remove_sentence_boundaries(tensor, mask)[0],
+        decimal=6)
+    tensor_without_boundary_tokens = tensor_without_bos_and_eos
+    return tensor_without_boundary_tokens, new_mask
+
+
 class Elmo(chainer.Chain):
     """
     Compute ELMo representations using a pre-trained bidirectional language model.
@@ -284,7 +339,7 @@ class Elmo(chainer.Chain):
                 elmo_representations = representations
 
         layer_activations_without_bos_eos = [
-            remove_sentence_boundaries(
+            remove_sentence_boundaries_for_variable(
                 a_layer_activation, mask_with_bos_eos)[0]
             for a_layer_activation in layer_activations]
         return {'elmo_representations': elmo_representations, 'mask': mask,
@@ -767,7 +822,7 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
     char_ids = batcher.batch_sentences([tokens], add_bos_eos=False)
     # (batch_size, timesteps, 50)
     # TODO(sosk): adapt to gpu
-    # TODO(sosk): minibatch processing
+    # TODO(sosk): minibatch processing for memory safety
     with chainer.using_config("train", False), \
             chainer.no_backprop_mode():
         embeddings = model._elmo_lstm._token_embedder\
@@ -781,3 +836,50 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
     with h5py.File(outfile, 'w') as fout:
         ds = fout.create_dataset(
             'embedding', embeddings.shape, dtype='float32', data=embeddings)
+
+
+def dump_bilm_embeddings(vocab_file, dataset_file, options_file,
+                         weight_file, outfile):
+    with open(options_file, 'r') as fin:
+        options = json.load(fin)
+    max_word_length = options['char_cnn']['max_characters_per_token']
+
+    vocab = UnicodeCharsVocabulary(vocab_file, max_word_length)
+    batcher = Batcher(vocab_file, max_word_length)
+
+    model = Elmo(
+        options_file,
+        weight_file,
+        num_output_representations=1,
+        requires_grad=False,
+        do_layer_norm=False,
+        dropout=0.)
+
+    # (batch_size, timesteps, 50)
+    # TODO(sosk): adapt to gpu
+    # TODO(sosk): minibatch processing for acceleration
+    # TODO(sosk): preencoding token embedding for acceleration
+    with chainer.using_config("train", False), \
+            chainer.no_backprop_mode():
+        sentence_id = 0
+        with open(dataset_file, 'r') as fin, h5py.File(outfile, 'w') as fout:
+            for line in fin:
+                sentence = line.strip().split()
+                char_ids = batcher.batch_sentences(
+                    [sentence], add_bos_eos=False)
+                embedding_layers = model.forward(char_ids)['elmo_layers']
+                # [(batch_size, sequence_length, embedding_dim), ..., x n_layers]
+                # Note that embedding layers have already trushed bos & eos
+                concat_embedding_layers = cuda.to_cpu(
+                    model.xp.stack([emb.array[0]
+                                    for emb in embedding_layers], axis=0))
+                # 1:-1 del bos and eos
+                # (n_layers=3, sequence_length, embedding_dim)
+
+                ds = fout.create_dataset(
+                    '{}'.format(sentence_id),
+                    concat_embedding_layers.shape, dtype='float32',
+                    data=concat_embedding_layers
+                )
+
+                sentence_id += 1
