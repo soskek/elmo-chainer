@@ -47,15 +47,21 @@ dump_token_embeddings(
 )
 
 ###########################################
+"""
+Differences from usage of character-elmo are only simple two points:
+1. use TokenBatcher(vocab_file) instead of Batcher(vocab_file)
+2. add token_embedding_file and token batcher for Elmo instantiation
+"""
+
 # Create a TokenBatcher to map text to token ids.
-batcher = TokenBatcher(vocab_file)
+batcher = TokenBatcher(vocab_file)  # REQUIRED
 
 # Build the Elmo with biLM and weight layers.
 elmo = Elmo(
     options_file,
     weight_file,
-    token_embedding_file=token_embedding_file,
-    token_batcher=batcher,
+    token_embedding_file=token_embedding_file,  # REQUIRED
+    token_batcher=batcher,  # REQUIRED
     num_output_representations=1,
     requires_grad=False,
     do_layer_norm=False,

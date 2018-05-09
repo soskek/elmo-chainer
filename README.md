@@ -18,6 +18,8 @@ sh download.sh
 
 See `usage_character.py` or `usage_character_simple.py` in detail.
 
+You can also refer to `usage_token.py` for pre-encoding and re-use token embeddings.
+
 ```
 import chainer
 from bilm import Batcher
@@ -55,7 +57,7 @@ print(embeddings['elmo_representations'][0].shape)
 - Can load model files with the orignal formats.
 - Training of weight-sum layers is supported.
 - Pretraining of biLM is NOT supported.
-- Now, 1st `usage_character.py` mode is supported. The other modes will be available soon.
+- Now supporting `usage_character.py` and `usage_token.py`. `usage_cache.py` will be available soon.
 
 
 
