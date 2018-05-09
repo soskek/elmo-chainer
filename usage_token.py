@@ -5,12 +5,8 @@ token representations
 Below, we show usage for SQuAD where each input example consists of both
 a question and a paragraph of context.
 '''
-
-import os
-
 import chainer
 
-from bilm import Batcher
 from bilm import Elmo
 from bilm import TokenBatcher
 from bilm import dump_token_embeddings
@@ -36,14 +32,20 @@ vocab_file = 'vocab_small.txt'
 with open(vocab_file, 'w') as fout:
     fout.write('\n'.join(all_tokens))
 
-# Location of pretrained LM.  Here we use the test fixtures.
+# Location of pretrained LM.
 options_file = 'elmo_2x4096_512_2048cnn_2xhighway_options.json'
 weight_file = 'elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5'
 
 # Dump the token embeddings to a file. Run this once for your dataset.
 token_embedding_file = 'elmo_token_embeddings.hdf5'
+
+# gpu id
+# if you want to use cpu, set gpu=-1
+gpu = -1
+
 dump_token_embeddings(
-    vocab_file, options_file, weight_file, token_embedding_file
+    vocab_file, options_file, weight_file, token_embedding_file,
+    gpu=gpu
 )
 
 ###########################################
@@ -75,17 +77,13 @@ question_token_ids = batcher.batch_sentences(
 # numpy.ndarray or cupy.ndarray
 # with shape (batchsize, max_length)
 
-# gpu id
-# if you want to use cpu, set gpu=-1
-# gpu = 0
-gpu = -1
 if gpu >= 0:
     # transfer the model to the gpu
     chainer.cuda.get_device_from_id(gpu).use()
     elmo.to_gpu()
     # transfer input data to the gpu
-    context_ids = elmo.xp.asarray(context_token_ids)
-    question_ids = elmo.xp.asarray(question_token_ids)
+    context_token_ids = elmo.xp.asarray(context_token_ids)
+    question_token_ids = elmo.xp.asarray(question_token_ids)
 
 # Compute elmo outputs,
 # i.e. weighted sum of multi-layer biLM's outputs.

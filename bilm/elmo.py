@@ -796,7 +796,8 @@ class _ElmoBiLm(chainer.Chain):
         }
 
 
-def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
+def dump_token_embeddings(vocab_file, options_file, weight_file, outfile,
+                          gpu=-1):
     '''
     Given an input vocabulary file, dump all the token embeddings to the
     outfile.  The result can be used as the embedding_weight_file when
@@ -821,7 +822,11 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
 
     char_ids = batcher.batch_sentences([tokens], add_bos_eos=False)
     # (batch_size, timesteps, 50)
-    # TODO(sosk): adapt to gpu
+    if gpu >= 0:
+        cuda.get_device_from_id(gpu).use()
+        model.to_gpu()
+        char_ids = model.xp.asarray(char_ids)  # to gpu
+
     # TODO(sosk): minibatch processing for memory safety
     with chainer.using_config("train", False), \
             chainer.no_backprop_mode():
@@ -839,7 +844,7 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
 
 
 def dump_bilm_embeddings(vocab_file, dataset_file, options_file,
-                         weight_file, outfile):
+                         weight_file, outfile, gpu=-1):
     with open(options_file, 'r') as fin:
         options = json.load(fin)
     max_word_length = options['char_cnn']['max_characters_per_token']
@@ -854,9 +859,11 @@ def dump_bilm_embeddings(vocab_file, dataset_file, options_file,
         requires_grad=False,
         do_layer_norm=False,
         dropout=0.)
+    if gpu >= 0:
+        cuda.get_device_from_id(gpu).use()
+        model.to_gpu()
 
     # (batch_size, timesteps, 50)
-    # TODO(sosk): adapt to gpu
     # TODO(sosk): minibatch processing for acceleration
     # TODO(sosk): preencoding token embedding for acceleration
     with chainer.using_config("train", False), \
@@ -867,6 +874,8 @@ def dump_bilm_embeddings(vocab_file, dataset_file, options_file,
                 sentence = line.strip().split()
                 char_ids = batcher.batch_sentences(
                     [sentence], add_bos_eos=False)
+                if gpu:
+                    char_ids = model.xp.asarray(char_ids)
                 embedding_layers = model.forward(char_ids)['elmo_layers']
                 # [(batch_size, sequence_length, embedding_dim), ..., x n_layers]
                 # Note that embedding layers have already trushed bos & eos
