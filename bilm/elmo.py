@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Union, List, Dict, Any
-
+import warnings
 
 import numpy
 import h5py
@@ -177,6 +177,8 @@ class Elmo(chainer.Chain):
     def __init__(self,
                  options_file,
                  weight_file,
+                 token_embedding_file=None,
+                 token_batcher=None,
                  num_output_representations=1,
                  requires_grad=False,
                  do_layer_norm=False,
@@ -187,8 +189,12 @@ class Elmo(chainer.Chain):
 
         with self.init_scope():
             self._elmo_lstm = _ElmoBiLm(
-                options_file, weight_file, requires_grad=requires_grad)
+                options_file, weight_file,
+                token_embedding_file=token_embedding_file,
+                token_batcher=token_batcher,
+                requires_grad=requires_grad)
             self._dropout_ratio = dropout
+            self.use_character_inputs = (token_embedding_file is None)
             self._scalar_mixes = []
             for k in range(num_output_representations):
                 scalar_mix = ScalarMix(
@@ -217,13 +223,26 @@ class Elmo(chainer.Chain):
         ``'mask'``:  ``torch.autograd.Variable``
             Shape ``(batch_size, timesteps)`` long tensor with sequence mask.
         """
-        # reshape the input if needed
-        original_shape = inputs.shape
-        timesteps, num_characters = original_shape[-2:]
-        if len(original_shape) > 3:
-            reshaped_inputs = inputs.reshape((-1, timesteps, num_characters))
+        if self.use_character_inputs:
+            # reshape the input if needed
+            original_shape = inputs.shape
+            timesteps, num_characters = original_shape[-2:]
+            if len(original_shape) > 3:
+                reshaped_inputs = inputs.reshape(
+                    (-1, timesteps, num_characters))
+            else:
+                reshaped_inputs = inputs
         else:
-            reshaped_inputs = inputs
+            # reshape the input if needed
+            original_shape = inputs.shape
+            timesteps = original_shape[-1]
+            if len(original_shape) > 2:
+                warnings.warn(
+                    'It is not tested to use input with shape (batch_size, dim0, ..., timesteps) to token-input Elmo.\n'
+                    'Input with shape (batch_size, timesteps) is recommended.')
+                reshaped_inputs = inputs.reshape((-1, timesteps))
+            else:
+                reshaped_inputs = inputs
 
         # run the biLM
         # no backprop through bilstm for lightening computations
@@ -246,14 +265,23 @@ class Elmo(chainer.Chain):
                 representation_without_bos_eos,
                 ratio=self._dropout_ratio))
 
-        # reshape if necessary
-        if len(original_shape) > 3:
-            mask = mask_without_bos_eos.reshape(original_shape[:-1])
-            elmo_representations = [representation.reshape(original_shape[:-1] + (-1, ))
-                                    for representation in representations]
+        if self.use_character_inputs:
+            # reshape if necessary
+            if len(original_shape) > 3:
+                mask = mask_without_bos_eos.reshape(original_shape[:-1])
+                elmo_representations = [representation.reshape(original_shape[:-1] + (-1, ))
+                                        for representation in representations]
+            else:
+                mask = mask_without_bos_eos
+                elmo_representations = representations
         else:
-            mask = mask_without_bos_eos
-            elmo_representations = representations
+            if len(original_shape) > 2:
+                mask = mask_without_bos_eos.reshape(original_shape)
+                elmo_representations = [representation.reshape(original_shape + (-1, ))
+                                        for representation in representations]
+            else:
+                mask = mask_without_bos_eos
+                elmo_representations = representations
 
         layer_activations_without_bos_eos = [
             remove_sentence_boundaries(
@@ -278,6 +306,99 @@ class Elmo(chainer.Chain):
 
         return cls(options_file, weight_file, num_output_representations,
                    requires_grad=requires_grad, do_layer_norm=do_layer_norm)
+
+
+class _ElmoTokenEmbedder(chainer.Chain):
+    def __init__(self,
+                 options_file,
+                 token_embedding_file,
+                 token_batcher,
+                 requires_grad=False):
+        super(_ElmoTokenEmbedder, self).__init__()
+
+        with open(cached_path(options_file), 'r') as fin:
+            self._options = json.load(fin)
+        self._token_embedding_file = token_embedding_file
+
+        self.output_dim = self._options['lstm']['projection_dim']
+        self.requires_grad = requires_grad
+
+        self._load_weights()
+
+        """
+        # Cache the arrays for use in forward -- +1 due to masking.
+        self._beginning_of_sentence_characters = self.xp.asarray(
+            numpy.array(UnicodeCharsVocabulary.bos_chars) + 1
+        )
+        self._end_of_sentence_characters = self.xp.asarray(
+            numpy.array(UnicodeCharsVocabulary.eos_chars) + 1
+        )
+        """
+        # Cache the arrays for use in forward -- +1 due to masking.
+        self._beginning_of_sentence_token = token_batcher._lm_vocab.bos + 1
+        self._end_of_sentence_token = token_batcher._lm_vocab.eos + 1
+
+    def get_output_dim(self):
+        return self.output_dim
+
+    def forward(self, inputs):
+        """
+        Compute context insensitive token embeddings for ELMo representations.
+
+        Parameters
+        ----------
+        inputs: ``torch.autograd.Variable``
+            Shape ``(batch_size, sequence_length)`` of token ids representing the
+            current batch.
+
+        Returns
+        -------
+        Dict with keys:
+        ``'token_embedding'``: ``torch.autograd.Variable``
+            Shape ``(batch_size, sequence_length + 2, embedding_dim)`` tensor with context
+            insensitive token representations.
+        ``'mask'``:  ``torch.autograd.Variable``
+            Shape ``(batch_size, sequence_length + 2)`` long tensor with sequence mask.
+        """
+        # Add BOS/EOS
+        # mask = ((inputs > 0).sum(axis=-1) > 0)
+        mask = (inputs > 0)
+
+        token_ids_with_bos_eos, mask_with_bos_eos = add_sentence_boundary_token_ids(
+            inputs,
+            mask,
+            self._beginning_of_sentence_token,
+            self._end_of_sentence_token
+        )
+
+        token_embedding = F.embed_id(
+            token_ids_with_bos_eos,
+            self._token_embedding_weights
+        )
+
+        # (batch_size, sequence_length, embedding_dim)
+        return {
+            'mask': mask_with_bos_eos,
+            'token_embedding': token_embedding
+        }
+
+    def _load_weights(self):
+        self._load_token_embedding()
+
+    def _load_token_embedding(self):
+        with h5py.File(cached_path(self._token_embedding_file), 'r') as fin:
+            token_embed_weights = fin['embedding'][...]
+
+            weights = numpy.zeros(
+                (token_embed_weights.shape[0] +
+                 1, token_embed_weights.shape[1]),
+                dtype=DTYPE)
+            weights[1:, :] = token_embed_weights
+
+        with self.init_scope():
+            self._token_embedding_weights = chainer.Parameter(weights)
+            self._token_embedding_weights._requires_grad = self.requires_grad
+        # TODO(sosk): add assert for batcher vocab and embedding
 
 
 class _ElmoCharacterEncoder(chainer.Chain):
@@ -549,6 +670,8 @@ class _ElmoBiLm(chainer.Chain):
     def __init__(self,
                  options_file,
                  weight_file,
+                 token_embedding_file=None,
+                 token_batcher=None,
                  requires_grad=False):
         super(_ElmoBiLm, self).__init__()
 
@@ -558,8 +681,13 @@ class _ElmoBiLm(chainer.Chain):
             raise ConfigurationError(
                 'We only support pretrained biLMs with residual connections')
         with self.init_scope():
-            self._token_embedder = _ElmoCharacterEncoder(
-                options_file, weight_file, requires_grad=requires_grad)
+            if token_embedding_file:
+                assert token_batcher is not None
+                self._token_embedder = _ElmoTokenEmbedder(
+                    options_file, token_embedding_file, token_batcher)
+            else:
+                self._token_embedder = _ElmoCharacterEncoder(
+                    options_file, weight_file, requires_grad=requires_grad)
             self._elmo_lstm = ElmoLstm(input_size=options['lstm']['projection_dim'],
                                        hidden_size=options['lstm']['projection_dim'],
                                        cell_size=options['lstm']['dim'],
