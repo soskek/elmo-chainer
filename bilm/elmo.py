@@ -12,7 +12,7 @@ from chainer import functions as F
 from chainer import links as L
 from chainer import Variable
 
-from .data import UnicodeCharsVocabulary
+from .data import UnicodeCharsVocabulary, Batcher
 from .elmo_lstm import ElmoLstm
 from .file_utils import cached_path
 from .highway import Highway
@@ -22,6 +22,8 @@ from .scalar_mix import ScalarMix
 ConfigurationError = ValueError
 
 logger = logging.getLogger(__name__)
+
+DTYPE = 'float32'
 
 
 def add_sentence_boundary_token_ids(tensor,
@@ -609,3 +611,45 @@ class _ElmoBiLm(chainer.Chain):
             'activations': output_tensors,
             'mask': mask,
         }
+
+
+def dump_token_embeddings(vocab_file, options_file, weight_file, outfile):
+    '''
+    Given an input vocabulary file, dump all the token embeddings to the
+    outfile.  The result can be used as the embedding_weight_file when
+    constructing a BidirectionalLanguageModel.
+    '''
+    with open(options_file, 'r') as fin:
+        options = json.load(fin)
+    max_word_length = options['char_cnn']['max_characters_per_token']
+
+    vocab = UnicodeCharsVocabulary(vocab_file, max_word_length)
+    batcher = Batcher(vocab_file, max_word_length)
+
+    model = Elmo(
+        options_file,
+        weight_file,
+        num_output_representations=1,
+        requires_grad=False,
+        do_layer_norm=False,
+        dropout=0.)
+
+    tokens = [vocab.id_to_word(i) for i in range(vocab.size)]
+
+    char_ids = batcher.batch_sentences([tokens], add_bos_eos=False)
+    # (batch_size, timesteps, 50)
+    # TODO(sosk): adapt to gpu
+    # TODO(sosk): minibatch processing
+    with chainer.using_config("train", False), \
+            chainer.no_backprop_mode():
+        embeddings = model._elmo_lstm._token_embedder\
+                                     .forward(char_ids)['token_embedding']
+
+    # (batch_size, sequence_length + 2, embedding_dim)
+    embeddings = embeddings[:, 1:-1]  # del bos and eos
+    embeddings = embeddings[0]
+    embeddings = cuda.to_cpu(embeddings.array)
+
+    with h5py.File(outfile, 'w') as fout:
+        ds = fout.create_dataset(
+            'embedding', embeddings.shape, dtype='float32', data=embeddings)
