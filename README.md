@@ -25,9 +25,14 @@ python setup.py install
 sh download.sh
 ```
 
+For using gpu, furthermore
+```
+pip install cupy
+```
+
 ## Usage
 
-These usages correspond to the [bilm-tf's description](https://github.com/allenai/bilm-tf#using-pre-trained-models). [pytorch's](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md) readme will be also helpful.
+You have some choises using ELMo due to caching for acceleration. These usages correspond to the [bilm-tf's description](https://github.com/allenai/bilm-tf#using-pre-trained-models). [pytorch's](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md) readme will be also helpful.
 You can use either gpu and cpu.
 
 ### 1. Compute representations on the fly from raw text using character input
