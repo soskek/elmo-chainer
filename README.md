@@ -25,22 +25,6 @@ python setup.py install
 sh download.sh
 ```
 
-### If Using GPU
-
-If you already know your cuda version as CUDA 8.0, 9.0 or 9.1, please perform the corresponding installation.
-
-``
-pip install cupy-cuda80
-pip install cupy-cuda90
-pip install cupy-cuda91
-```
-
-Otherwise, please
-
-```
-pip install cupy
-```
-
 
 ## Usage
 
@@ -99,6 +83,22 @@ with h5py.File(embedding_file, 'r') as fin:
 - Excuse: This is modified to work on both py3 and py2 unlike original implementations, but py3 is recommended.
 - Docstrings in code are still old, i.e. written for pytorch, but you can almost read them due to similarity with chainer.
 
+
+### If Using GPU
+
+If you know your cuda version as CUDA 8.0, 9.0 or 9.1, please perform the corresponding installation.
+
+```
+pip install cupy-cuda80
+pip install cupy-cuda90
+pip install cupy-cuda91
+```
+
+Otherwise, please
+
+```
+pip install cupy
+```
 
 ### Appendix
 
