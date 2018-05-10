@@ -58,6 +58,9 @@ You can save the biLM representations of dataset (sentence-per-line) as follows:
 python bilm_encode_sentenses.py -i _sample_dataset_file.txt -o elmo_embeddings.hdf5
 ```
 
+You can use gpu (id=0) if adding `-g 0`.
+
+
 You can load them as numpy.ndarray in python
 
 ```
