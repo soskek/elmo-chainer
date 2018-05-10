@@ -3,8 +3,8 @@ ELMo usage example to write biLM embeddings for an entire dataset to
 a file.
 '''
 
-import os
 import h5py
+
 from bilm import dump_bilm_embeddings
 
 # Our small dataset.
@@ -24,19 +24,26 @@ with open(dataset_file, 'w') as fout:
         fout.write(' '.join(sentence) + '\n')
 
 
-# Location of pretrained LM.  Here we use the test fixtures.
-datadir = os.path.join('tests', 'fixtures', 'model')
-vocab_file = os.path.join(datadir, 'vocab_test.txt')
-options_file = os.path.join(datadir, 'options.json')
-weight_file = os.path.join(datadir, 'lm_weights.hdf5')
+# Location of pretrained LM.
+vocab_file = 'vocab-2016-09-10.txt'
+options_file = 'elmo_2x4096_512_2048cnn_2xhighway_options.json'
+weight_file = 'elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5'
 
 # Dump the embeddings to a file. Run this once for your dataset.
 embedding_file = 'elmo_embeddings.hdf5'
+
+# gpu id
+# if you want to use cpu, set gpu=-1
+gpu = -1
+
 dump_bilm_embeddings(
-    vocab_file, dataset_file, options_file, weight_file, embedding_file
+    vocab_file, dataset_file, options_file, weight_file, embedding_file,
+    gpu=gpu
 )
 
 # Load the embeddings from the file -- here the 2nd sentence.
 with h5py.File(embedding_file, 'r') as fin:
     second_sentence_embeddings = fin['1'][...]
-
+    print(second_sentence_embeddings.shape)
+    # (n_layers=3, sequence_length, embedding_dim)
+    print(second_sentence_embeddings)
