@@ -2,9 +2,9 @@
 import setuptools
 
 setuptools.setup(
-    name='bilm-chainer',
+    name='elmo-chainer',
     version='0.1',
-    url='http://github.com/chainer/models/bilm-chainer',
+    url='http://github.com/chainer/models/elmo-chainer',
     packages=setuptools.find_packages(),
     tests_require=[],
     zip_safe=False,

@@ -1,4 +1,4 @@
-# bilm-chainer
+# ELMo-chainer
 
 Chainer implementation of the pretrained biLM used to compute ELMo representations from ["Deep contextualized word representations"](http://arxiv.org/abs/1802.05365).
 The paper reported that the contextual representations provide large improvements for NLP tasks.
