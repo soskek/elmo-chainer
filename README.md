@@ -25,10 +25,22 @@ python setup.py install
 sh download.sh
 ```
 
-For using gpu, furthermore
+### If Using GPU
+
+If you already know your cuda version as CUDA 8.0, 9.0 or 9.1, please perform the corresponding installation.
+
+``
+pip install cupy-cuda80
+pip install cupy-cuda90
+pip install cupy-cuda91
+```
+
+Otherwise, please
+
 ```
 pip install cupy
 ```
+
 
 ## Usage
 
