@@ -3,7 +3,7 @@
 Chainer implementation of the pretrained biLM used to compute ELMo representations from ["Deep contextualized word representations"](http://arxiv.org/abs/1802.05365).
 The paper reported that the contextual representations provide large improvements for NLP tasks.
 
-This repository is ported from [tensorflow bilm-tf](https://github.com/allenai/bilm-tf) and [pytorch in AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md).
+This repository is unofficially ported from [tensorflow bilm-tf](https://github.com/allenai/bilm-tf) and [pytorch in AllenNLP](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md). Thank you, [@allenai](https://github.com/allenai) and [@matt-peters](https://github.com/matt-peters).
 This Chainer implementation is primarily compatible with them and able to use model files as well as they use.
 
 ## Install
