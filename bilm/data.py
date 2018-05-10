@@ -1,9 +1,10 @@
 # originally based on https://github.com/tensorflow/models/tree/master/lm_1b
 import numpy as np
 
-from typing import List
 import re
 
+import sys
+_PY2 = sys.version_info[0] < 3
 
 split_pattern = re.compile(r'([.,!?"\':;)(])')
 
@@ -109,20 +110,6 @@ class Vocabulary(object):
             return np.array(word_ids, dtype=np.int32)
 
 
-def _make_bos_eos(
-        character: int,
-        padding_character: int,
-        beginning_of_word_character: int,
-        end_of_word_character: int,
-        max_word_length: int
-):
-    char_ids = [padding_character] * max_word_length
-    char_ids[0] = beginning_of_word_character
-    char_ids[1] = character
-    char_ids[2] = end_of_word_character
-    return char_ids
-
-
 # the charcter representation of the begin/end of sentence characters
 def _make_bos_eos(
         c,
@@ -219,8 +206,12 @@ class UnicodeCharsVocabulary(Vocabulary):
         code = np.zeros([self.max_word_length], dtype=np.int32)
         code[:] = self.pad_char
 
-        word_encoded = word.encode(
-            'utf-8', 'ignore')[:(self.max_word_length-2)]
+        if _PY2:
+            word_encoded = [ord(c) for c in word][:(self.max_word_length-2)]
+        else:
+            word_encoded = word.encode(
+                'utf-8', 'ignore')[:(self.max_word_length-2)]
+
         code[0] = self.bow_char
         for k, chr_id in enumerate(word_encoded, start=1):
             code[k] = chr_id

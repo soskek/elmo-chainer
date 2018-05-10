@@ -3,7 +3,7 @@ A `Highway layer <https://arxiv.org/abs/1505.00387>`_ that does a gated combinat
 transformation and a non-linear transformation of its input.
 """
 
-from typing import Callable
+# from typing import Callable
 
 import chainer
 from chainer import functions as F

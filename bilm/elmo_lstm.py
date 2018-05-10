@@ -2,7 +2,7 @@
 A stacked bidirectional LSTM with skip connections between layers.
 """
 
-from typing import Optional, Tuple, List
+# from typing import Optional, Tuple, List
 
 import h5py
 import numpy

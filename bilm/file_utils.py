@@ -2,13 +2,17 @@
 Utilities for working with the local dataset cache.
 """
 
-from typing import Tuple
+# from typing import Tuple
 import os
 import base64
 import logging
 import shutil
 import tempfile
-from urllib.parse import urlparse
+
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 
 import requests
 
@@ -37,12 +41,14 @@ def url_to_filename(url, etag=None):
     if etag:
         # Remove quotes from etag
         etag = etag.replace('"', '')
-        return f"{decoded}.{etag}"
+        # return f"{decoded}.{etag}"
+        return '{}.{}'.format(decoded, etag)
     else:
         return decoded
 
 
-def filename_to_url(filename: str) -> Tuple[str, str]:
+#def filename_to_url(filename: str) -> Tuple[str, str]:
+def filename_to_url(filename):
     """
     Recovers the the url from the encoded filename. Returns it and the ETag
     (which may be ``None``)

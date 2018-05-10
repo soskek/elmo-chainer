@@ -3,7 +3,7 @@ An LSTM with Recurrent Dropout, a hidden_state which is projected and
 clipping on both the hidden state and the memory state of the LSTM.
 """
 
-from typing import Optional, Tuple, List
+# from typing import Optional, Tuple, List
 
 import chainer
 from chainer import functions as F
