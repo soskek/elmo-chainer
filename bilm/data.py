@@ -2,6 +2,18 @@
 import numpy as np
 
 from typing import List
+import re
+
+
+split_pattern = re.compile(r'([.,!?"\':;)(])')
+
+
+def split_sentence_with_punctuations(sentence):
+    words = []
+    for word in sentence.strip().split():
+        words.extend(split_pattern.split(word))
+    words = [w for w in words if w]
+    return words
 
 
 class Vocabulary(object):
