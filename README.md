@@ -96,7 +96,7 @@ with h5py.File(embedding_file, 'r') as fin:
 - Training of weight-sum layers is supported.
 - Pretraining of biLM is NOT supported.
 - Finetuning of biLM in downstream tasks is possible but disable by default.
-- Excuse: This is modified to work on both py3 and py2 unlike original implementations, but the test is not performed well.
+- Excuse: This is modified to work on both py3 and py2 unlike original implementations, but py3 is recommended.
 - Docstrings in code are still old, i.e. written for pytorch, but you can almost read them due to similarity with chainer.
 
 
