@@ -42,10 +42,14 @@ token_embedding_file = 'elmo_token_embeddings.hdf5'
 # gpu id
 # if you want to use cpu, set gpu=-1
 gpu = -1
+# batchsize
+# encoding each token is inefficient
+# encoding too many tokens is difficult due to memory
+batchsize = 64
 
 dump_token_embeddings(
     vocab_file, options_file, weight_file, token_embedding_file,
-    gpu=gpu
+    gpu=gpu, batchsize=batchsize
 )
 
 ###########################################
@@ -120,103 +124,3 @@ print(context_embeddings['elmo_representations'][0].shape)
 # print(context_embeddings['elmo_layers'][0])
 # print(context_embeddings['elmo_layers'][1])
 # print(context_embeddings['elmo_layers'][2])
-
-
-"""
-# Input placeholders to the biLM.
-context_token_ids = tf.placeholder('int32', shape=(None, None))
-question_token_ids = tf.placeholder('int32', shape=(None, None))
-
-# Build the biLM graph.
-bilm = BidirectionalLanguageModel(
-    options_file,
-    weight_file,
-    use_character_inputs=False,
-    embedding_weight_file=token_embedding_file
-)
-
-# Get ops to compute the LM embeddings.
-context_embeddings_op = bilm(context_token_ids)
-question_embeddings_op = bilm(question_token_ids)
-
-# Get an op to compute ELMo (weighted average of the internal biLM layers)
-# Our SQuAD model includes ELMo at both the input and output layers
-# of the task GRU, so we need 4x ELMo representations for the question
-# and context at each of the input and output.
-# We use the same ELMo weights for both the question and context
-# at each of the input and output.
-elmo_context_input = weight_layers('input', context_embeddings_op, l2_coef=0.0)
-with tf.variable_scope('', reuse=True):
-    # the reuse=True scope reuses weights from the context for the question
-    elmo_question_input = weight_layers(
-        'input', question_embeddings_op, l2_coef=0.0
-    )
-
-elmo_context_output = weight_layers(
-    'output', context_embeddings_op, l2_coef=0.0
-)
-with tf.variable_scope('', reuse=True):
-    # the reuse=True scope reuses weights from the context for the question
-    elmo_question_output = weight_layers(
-        'output', question_embeddings_op, l2_coef=0.0
-    )
-
-
-with tf.Session() as sess:
-    # It is necessary to initialize variables once before running inference.
-    sess.run(tf.global_variables_initializer())
-
-    # Create batches of data.
-    context_ids = batcher.batch_sentences(tokenized_context)
-    question_ids = batcher.batch_sentences(tokenized_question)
-
-    # Compute ELMo representations (here for the input only, for simplicity).
-    elmo_context_input_, elmo_question_input_ = sess.run(
-        [elmo_context_input['weighted_op'], elmo_question_input['weighted_op']],
-        feed_dict={context_token_ids: context_ids,
-                   question_token_ids: question_ids}
-    )
-"""
-
-"""
-# num_output_representations represents
-# the number of weighted-sum patterns.
-# that is, set 1 if using elmo at the input layer in another neural model.
-#          set 2 if using elmo at both input and pre-output in a neural model.
-
-# list of list of str. (i-th batch, j-th token, token's surface string)
-# [1st_sentence = [1st word, 2nd word, ...],
-#  2nd_sentence = [...]]
-raw_context = [
-    'Pretrained biLMs compute representations useful for NLP tasks .',
-    'They give state of the art performance for many tasks .'
-]
-tokenized_context = [sentence.split() for sentence in raw_context]
-tokenized_question = [
-    ['What', 'are', 'biLMs', 'useful', 'for', '?'],
-]
-
-# Create batches of data.
-context_ids = batcher.batch_sentences(tokenized_context, add_bos_eos=False)
-question_ids = batcher.batch_sentences(tokenized_question, add_bos_eos=False)
-# numpy.ndarray or cupy.ndarray
-# with shape (batchsize, max_length, max_character_length)
-# default max_character_length = 50
-
-# gpu id
-# if you want to use cpu, set gpu=-1
-# gpu = 0
-gpu = -1
-if gpu >= 0:
-    # transfer the model to the gpu
-    chainer.cuda.get_device_from_id(gpu).use()
-    elmo.to_gpu()
-    # transfer input data to the gpu
-    context_ids = elmo.xp.asarray(context_ids)
-    question_ids = elmo.xp.asarray(question_ids)
-
-# Compute elmo outputs,
-# i.e. weighted sum of multi-layer biLM's outputs.
-context_embeddings = elmo.forward(context_ids)
-question_embeddings = elmo.forward(question_ids)
-"""

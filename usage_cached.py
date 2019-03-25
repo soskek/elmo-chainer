@@ -35,10 +35,14 @@ embedding_file = 'elmo_embeddings.hdf5'
 # gpu id
 # if you want to use cpu, set gpu=-1
 gpu = -1
+# batchsize
+# encoding each token is inefficient
+# encoding too many tokens is difficult due to memory
+batchsize = 32
 
 dump_bilm_embeddings(
     vocab_file, dataset_file, options_file, weight_file, embedding_file,
-    gpu=gpu
+    gpu=gpu, batchsize=batchsize
 )
 
 # Load the embeddings from the file -- here the 2nd sentence.

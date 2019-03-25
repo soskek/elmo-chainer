@@ -29,7 +29,7 @@ sh download.sh
 ## Usage
 
 You have some choises using ELMo due to caching for acceleration. These usages correspond to the [bilm-tf's description](https://github.com/allenai/bilm-tf#using-pre-trained-models). [pytorch's](https://github.com/allenai/allennlp/blob/master/tutorials/how_to/elmo.md) readme will be also helpful.
-You can use either gpu and cpu.
+You can use either gpu or cpu.
 
 ### 1. Compute representations on the fly from raw text using character input
 
@@ -79,7 +79,7 @@ with h5py.File(embedding_file, 'r') as fin:
 - Can load model files with the orignal formats.
 - Training of weight-sum layers is supported.
 - Pretraining of biLM is NOT supported.
-- Finetuning of biLM in downstream tasks is possible but disable by default.
+- Finetuning of biLM in downstream tasks is possible but disabled by default.
 - Excuse: This is modified to work on both py3 and py2 unlike original implementations, but py3 is recommended.
 - Docstrings in code are still old, i.e. written for pytorch, but you can almost read them due to similarity with chainer.
 
@@ -103,7 +103,7 @@ pip install cupy
 ### Appendix
 
 Elmo takes as input tokenized sentences.
-It does not requires lowercasing but requires separating punctuations without words.
+It does not require lowercasing but requires separating punctuations without words.
 A lazy user can perform the punctuation-separation with a simple script as follows:
 
 ```

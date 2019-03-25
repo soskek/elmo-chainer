@@ -15,8 +15,6 @@ elmo = Elmo(
     dropout=0.)
 
 raw_sents = [
-]
-raw_sents = [
     'Pretrained biLMs compute representations useful for NLP tasks .',
     'They give state of the art performance for many tasks .'
 ]

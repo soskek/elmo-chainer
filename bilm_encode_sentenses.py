@@ -13,8 +13,6 @@ parser.add_argument('--input', '-in', '-i', required=True,
                     help='Path of input text file')
 parser.add_argument('--output', '-out', '-o', required=True,
                     help='Path of output file to be written')
-# parser.add_argument('--batchsize', '-b', type=int, default=32,
-#                     help='Number of examples in each mini-batch')
 args = parser.parse_args()
 print(json.dumps(args.__dict__, indent=2))
 
@@ -29,5 +27,5 @@ assert args.input != args.output
 
 dump_bilm_embeddings(
     vocab_file, dataset_file, options_file, weight_file, embedding_file,
-    gpu=args.gpu
+    gpu=args.gpu, batchsize=32
 )
