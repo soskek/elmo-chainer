@@ -1,8 +1,8 @@
 # originally based on https://github.com/tensorflow/models/tree/master/lm_1b
 import numpy as np
 
+import io
 import re
-
 import sys
 _PY2 = sys.version_info[0] < 3
 
@@ -35,7 +35,8 @@ class Vocabulary(object):
         self._bos = -1
         self._eos = -1
 
-        with open(filename) as f:
+        # with open(filename) as f:
+        with io.open(filename, encoding='utf-8') as f:
             idx = 0
             for line in f:
                 word_name = line.strip()

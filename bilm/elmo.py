@@ -5,6 +5,7 @@ import warnings
 
 import numpy
 import h5py
+import tqdm
 
 import chainer
 from chainer import cuda
@@ -553,7 +554,6 @@ class _ElmoCharacterEncoder(chainer.Chain):
         # the character id embedding
         max_chars_per_token = self._options['char_cnn']['max_characters_per_token']
         # (batch_size * sequence_length, max_chars_per_token, embed_dim)
-
         character_embedding = F.embed_id(
             character_ids_with_bos_eos.reshape((-1, max_chars_per_token)),
             self._char_embedding_weights
@@ -796,8 +796,23 @@ class _ElmoBiLm(chainer.Chain):
         }
 
 
+def minibatch_iterator(iterable, batchsize):
+    minibatch = []
+    _iterable = iter(iterable)
+    while True:
+        x = next(_iterable, None)
+        if x is None:
+            break
+        minibatch.append(x)
+        if len(minibatch) >= batchsize:
+            yield minibatch
+            minibatch = []
+    if minibatch:
+        yield minibatch
+
+
 def dump_token_embeddings(vocab_file, options_file, weight_file, outfile,
-                          gpu=-1):
+                          gpu=-1, batchsize=128):
     '''
     Given an input vocabulary file, dump all the token embeddings to the
     outfile.  The result can be used as the embedding_weight_file when
@@ -819,32 +834,40 @@ def dump_token_embeddings(vocab_file, options_file, weight_file, outfile,
         dropout=0.)
 
     tokens = [vocab.id_to_word(i) for i in range(vocab.size)]
+    n_tokens = len(tokens)
 
-    char_ids = batcher.batch_sentences([tokens], add_bos_eos=False)
     # (batch_size, timesteps, 50)
     if gpu >= 0:
         cuda.get_device_from_id(gpu).use()
         model.to_gpu()
-        char_ids = model.xp.asarray(char_ids)  # to gpu
 
-    # TODO(sosk): minibatch processing for memory safety
+    all_embeddings = []
     with chainer.using_config("train", False), \
             chainer.no_backprop_mode():
-        embeddings = model._elmo_lstm._token_embedder\
-                                     .forward(char_ids)['token_embedding']
+        for minibatch in minibatch_iterator(tqdm.tqdm(tokens, total=n_tokens),
+                                            batchsize):
+            char_ids = batcher.batch_sentences([minibatch], add_bos_eos=False)
+            char_ids = model.xp.asarray(char_ids)  # to gpu
+            embeddings = model._elmo_lstm._token_embedder\
+                                         .forward(char_ids)['token_embedding']
+            # (batch_size, sequence_length + 2, embedding_dim)
+            embeddings = embeddings[:, 1:-1]  # del bos and eos
+            embeddings = embeddings[0]
+            embeddings = cuda.to_cpu(embeddings.array)
+            all_embeddings.append(embeddings)
 
-    # (batch_size, sequence_length + 2, embedding_dim)
-    embeddings = embeddings[:, 1:-1]  # del bos and eos
-    embeddings = embeddings[0]
-    embeddings = cuda.to_cpu(embeddings.array)
-
+    all_embeddings = numpy.concatenate(all_embeddings, axis=0)
     with h5py.File(outfile, 'w') as fout:
         ds = fout.create_dataset(
-            'embedding', embeddings.shape, dtype='float32', data=embeddings)
+            'embedding',
+            all_embeddings.shape,
+            dtype='float32',
+            data=all_embeddings)
 
 
 def dump_bilm_embeddings(vocab_file, dataset_file, options_file,
-                         weight_file, outfile, gpu=-1):
+                         weight_file, outfile, gpu=-1,
+                         batchsize=32):
     with open(options_file, 'r') as fin:
         options = json.load(fin)
     max_word_length = options['char_cnn']['max_characters_per_token']
@@ -864,31 +887,36 @@ def dump_bilm_embeddings(vocab_file, dataset_file, options_file,
         model.to_gpu()
 
     # (batch_size, timesteps, 50)
-    # TODO(sosk): minibatch processing for acceleration
     # TODO(sosk): preencoding token embedding for acceleration
     with chainer.using_config("train", False), \
             chainer.no_backprop_mode():
         sentence_id = 0
+        n_lines = sum([1 for _ in open(dataset_file, 'r')])
         with open(dataset_file, 'r') as fin, h5py.File(outfile, 'w') as fout:
-            for line in fin:
-                sentence = line.strip().split()
+            for minibatch in minibatch_iterator(tqdm.tqdm(fin, total=n_lines),
+                                                batchsize):
+                sentences = [line.strip().split() for line in minibatch]
                 char_ids = batcher.batch_sentences(
-                    [sentence], add_bos_eos=False)
-                if gpu:
-                    char_ids = model.xp.asarray(char_ids)
-                embedding_layers = model.forward(char_ids)['elmo_layers']
-                # [(batch_size, sequence_length, embedding_dim), ..., x n_layers]
+                    sentences, add_bos_eos=False)
+                char_ids = model.xp.asarray(char_ids)
+                mb_outs = model.forward(char_ids)
+                mb_embedding_layers = mb_outs['elmo_layers']
+                # [(batch_size, max_sequence_length, embedding_dim), ..., x n_layers]
                 # Note that embedding layers have already trushed bos & eos
-                concat_embedding_layers = cuda.to_cpu(
-                    model.xp.stack([emb.array[0]
-                                    for emb in embedding_layers], axis=0))
-                # 1:-1 del bos and eos
-                # (n_layers=3, sequence_length, embedding_dim)
-
-                ds = fout.create_dataset(
-                    '{}'.format(sentence_id),
-                    concat_embedding_layers.shape, dtype='float32',
-                    data=concat_embedding_layers
-                )
-
-                sentence_id += 1
+                # But they contains padding
+                mb_mask = mb_outs['mask']
+                mb_concat_embedding_layers = cuda.to_cpu(
+                    model.xp.stack([mb_emb.array for mb_emb in mb_embedding_layers], axis=1))
+                # (batch_size, n_layers=3, max_sequence_length, embedding_dim)
+                for mask, concat_embedding_layers in zip(mb_mask, mb_concat_embedding_layers):
+                    # remove pads
+                    length = int(mask.sum())
+                    concat_embedding_layers = concat_embedding_layers[:, :length]
+                    # (n_layers=3, sequence_length, embedding_dim)
+                    ds = fout.create_dataset(
+                        '{}'.format(sentence_id),
+                        concat_embedding_layers.shape,
+                        dtype='float32',
+                        data=concat_embedding_layers
+                    )
+                    sentence_id += 1
